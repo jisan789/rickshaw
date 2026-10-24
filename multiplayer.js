@@ -2,7 +2,7 @@
  * বাপের রাস্তা · Baper Rasta Multiplayer Client Extension
  * Real-time WebSocket synchronization with 3D remote vehicles, interpolation,
  * Dhaka street nameplates, PvP bumping, off-screen edge compass radar,
- * live minimap opponent blips, and chaos leaderboard.
+ * and live minimap opponent blips.
  */
 
 (function () {
@@ -136,7 +136,7 @@
       }
     }
 
-    .mp-badge-pill, .mp-leaderboard, .mp-radar-tracker {
+    .mp-badge-pill, .mp-radar-tracker {
       pointer-events: auto;
     }
 
@@ -232,57 +232,6 @@
       font-weight: 700;
     }
 
-    /* Leaderboard Box with Collapsible Accordion */
-    .mp-leaderboard {
-      background: rgba(24, 20, 16, 0.88);
-      border: 1.5px solid rgba(255, 203, 31, 0.45);
-      border-radius: 12px;
-      padding: 8px 12px;
-      width: 100%;
-      box-sizing: border-box;
-      color: #f7efe0;
-      font-size: 12px;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
-    }
-    .mp-lb-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      user-select: none;
-      font-size: 11.5px;
-      font-weight: bold;
-      color: #ffcb1f;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding-bottom: 2px;
-    }
-    .mp-lb-header:hover {
-      color: #fff;
-    }
-    .mp-lb-chevron {
-      font-size: 9px;
-      color: #2ee6ff;
-      margin-left: 6px;
-    }
-    .mp-lb-rows {
-      margin-top: 6px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      padding-top: 4px;
-    }
-    .mp-lb-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 3px;
-      font-weight: 500;
-      font-size: 11.5px;
-    }
-    .mp-lb-row.mp-self {
-      color: #2ee6ff;
-      font-weight: bold;
-    }
 
     /* 3D Floating Nameplate Above Vehicle */
     .mp-nameplate {
@@ -415,7 +364,6 @@
   let nameplateContainer = null;
   let edgeContainer = null;
   let bumpCooldown = 0;
-  let leaderboardCollapsed = false;
 
   // Wait for game engine ready
   function waitForGame(cb) {
@@ -502,28 +450,8 @@
           <span class="mp-radar-dist" id="mp-tracker-dist">০০মি</span>
         </div>
       </div>
-
-      <div class="mp-leaderboard" id="mp-leaderboard">
-        <div class="mp-lb-header" id="mp-lb-toggle">
-          <span>🏆 জাতীয় ক্ষতি লিডারবোর্ড</span>
-          <span class="mp-lb-chevron" id="mp-lb-chevron">▲</span>
-        </div>
-        <div class="mp-lb-rows" id="mp-lb-rows"></div>
-      </div>
     `;
     document.body.appendChild(hudContainer);
-
-    // Toggle Leaderboard collapse / expand
-    const lbToggle = document.getElementById('mp-lb-toggle');
-    const lbRows = document.getElementById('mp-lb-rows');
-    const lbChevron = document.getElementById('mp-lb-chevron');
-    if (lbToggle && lbRows && lbChevron) {
-      lbToggle.addEventListener('click', () => {
-        leaderboardCollapsed = !leaderboardCollapsed;
-        lbRows.style.display = leaderboardCollapsed ? 'none' : 'block';
-        lbChevron.textContent = leaderboardCollapsed ? '▼' : '▲';
-      });
-    }
 
     // Container for 3D In-World Nameplates
     nameplateContainer = document.createElement('div');
@@ -540,37 +468,13 @@
     document.body.appendChild(edgeContainer);
   }
 
-  // Update Leaderboard
-  function updateLeaderboard() {
+  // Update Online Player Count
+  function updateOnlineCount() {
     if (!hudContainer) return;
     const onlineEl = document.getElementById('mp-online-text');
-    const rowsEl = document.getElementById('mp-lb-rows');
-    if (!onlineEl || !rowsEl) return;
-
+    if (!onlineEl) return;
     const totalDrivers = 1 + remotePlayers.size;
     onlineEl.textContent = `${totalDrivers} জন চালক লাইভ`;
-
-    const localDamage = (window.__at && window.__at.G && window.__at.G.bounty) || 0;
-    const list = [
-      { name: myName + ' (আপনি)', damage: localDamage, self: true, color: myColor }
-    ];
-    for (const [id, r] of remotePlayers.entries()) {
-      list.push({
-        name: r.name || 'চালক',
-        damage: r.damage || 0,
-        self: false,
-        color: r.color || '#ffcb1f'
-      });
-    }
-
-    list.sort((a, b) => b.damage - a.damage);
-
-    rowsEl.innerHTML = list.slice(0, 5).map((p, idx) => `
-      <div class="mp-lb-row ${p.self ? 'mp-self' : ''}">
-        <span>${idx === 0 ? '👑 ' : `${idx + 1}. `}${escapeHtml(p.name)}</span>
-        <span style="color: ${p.color};">৳${formatNumber(p.damage)}</span>
-      </div>
-    `).join('');
   }
 
   function escapeHtml(str) {
@@ -642,7 +546,7 @@
     };
 
     remotePlayers.set(player.id, remoteEntry);
-    updateLeaderboard();
+    updateOnlineCount();
   }
 
   // Remove remote player
@@ -662,7 +566,7 @@
     }
 
     remotePlayers.delete(playerId);
-    updateLeaderboard();
+    updateOnlineCount();
   }
 
   // Connect WebSocket to Python Server
@@ -707,14 +611,14 @@
       for (const p of msg.players) {
         spawnRemoteRickshaw(p);
       }
-      updateLeaderboard();
+      updateOnlineCount();
 
     } else if (msg.type === 'player_joined') {
       const p = msg.data;
       if (p.id !== myId) {
         spawnRemoteRickshaw(p);
         showToast(`🛺 ${p.name} রাস্তায় নেমেছেন!`, p.color);
-        updateLeaderboard();
+        updateOnlineCount();
       }
 
     } else if (msg.type === 'player_left') {
@@ -750,7 +654,7 @@
           r.horn = p.horn;
         }
       }
-      updateLeaderboard();
+      updateOnlineCount();
 
     } else if (msg.type === 'remote_horn') {
       const d = msg.data;
