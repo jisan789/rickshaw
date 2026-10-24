@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.bak
+.env
+.venv/
+env/
+venv/
+.agents/
+.system_generated/
